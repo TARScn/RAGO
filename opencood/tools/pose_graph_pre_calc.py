@@ -25,7 +25,7 @@ from icecream import ic
 
 def train_parser():
     parser = argparse.ArgumentParser(description="synthetic data generation")
-    parser.add_argument("--hypes_yaml", "-y", type=str, default="/root/OpenCOODv2/opencood/hypes_yaml/v2xset/lidar_only/coalign/precalc.yaml",
+    parser.add_argument("--hypes_yaml", "-y", type=str, default="opencood/hypes_yaml/v2xset/lidar_only_with_noise/coalign/precalc.yaml",
                         help='data generation yaml file needed ')
     parser.add_argument("--model_dir", type=str, default="")
     opt = parser.parse_args()

@@ -13,6 +13,12 @@ import shutil
 import torch
 import torch.optim as optim
 
+
+def _parse_epoch_from_path(checkpoint_path, prefix):
+    filename = os.path.basename(checkpoint_path)
+    match = re.match(rf"{re.escape(prefix)}(\d+)\.pth$", filename)
+    return int(match.group(1)) if match else None
+
 def backup_script(full_path, folders_to_save=["models", "data_utils", "utils", "loss"]):
     target_folder = os.path.join(full_path, 'scripts')
     if not os.path.exists(target_folder):
@@ -49,8 +55,11 @@ def load_saved_model(saved_path, model):
         if file_list:
             epochs_exist = []
             for file_ in file_list:
-                result = re.findall(".*epoch(.*).pth.*", file_)
-                epochs_exist.append(int(result[0]))
+                epoch = _parse_epoch_from_path(file_, 'net_epoch')
+                if epoch is not None:
+                    epochs_exist.append(epoch)
+            if not epochs_exist:
+                return 0
             initial_epoch_ = max(epochs_exist)
         else:
             initial_epoch_ = 0
@@ -58,11 +67,21 @@ def load_saved_model(saved_path, model):
 
     file_list = glob.glob(os.path.join(saved_path, 'net_epoch_bestval_at*.pth'))
     if file_list:
-        assert len(file_list) == 1
-        print("resuming best validation model at epoch %d" % \
-                eval(file_list[0].split("/")[-1].rstrip(".pth").lstrip("net_epoch_bestval_at")))
-        model.load_state_dict(torch.load(file_list[0] , map_location='cpu'), strict=False)
-        return eval(file_list[0].split("/")[-1].rstrip(".pth").lstrip("net_epoch_bestval_at")), model
+        bestval_candidates = []
+        for checkpoint_path in file_list:
+            epoch = _parse_epoch_from_path(checkpoint_path,
+                                           'net_epoch_bestval_at')
+            if epoch is not None:
+                bestval_candidates.append((epoch, checkpoint_path))
+        if bestval_candidates:
+            resume_epoch, resume_path = max(bestval_candidates,
+                                            key=lambda item: item[0])
+            print("resuming best validation model at epoch %d" %
+                  resume_epoch)
+            model.load_state_dict(torch.load(resume_path,
+                                             map_location='cpu'),
+                                  strict=False)
+            return resume_epoch, model
 
     initial_epoch = findLastCheckpoint(saved_path)
     if initial_epoch > 0:

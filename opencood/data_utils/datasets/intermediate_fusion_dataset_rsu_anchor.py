@@ -30,6 +30,32 @@ from opencood.utils.pcd_utils import (
 from opencood.utils.common_utils import read_json
 
 
+def _is_rsu_cav_id(cav_id):
+    try:
+        return int(cav_id) == -1
+    except (TypeError, ValueError):
+        return str(cav_id).strip() == "-1"
+
+
+def _prefer_rsu_anchor_index(dataset_name, cav_id_list, matched_cur_indices):
+    dataset_name = str(dataset_name).lower()
+    if dataset_name == 'dairv2x':
+        for matched_idx in matched_cur_indices:
+            cav_id = cav_id_list[matched_idx]
+            try:
+                if int(cav_id) == 1:
+                    return matched_idx
+            except (TypeError, ValueError):
+                if str(cav_id).strip() == "1":
+                    return matched_idx
+
+    for matched_idx in matched_cur_indices:
+        if _is_rsu_cav_id(cav_id_list[matched_idx]):
+            return matched_idx
+
+    return matched_cur_indices[0] if matched_cur_indices else 0
+
+
 def getIntermediateFusionDataset(cls):
     """
     cls: the Basedataset.
@@ -299,7 +325,7 @@ def getIntermediateFusionDataset(cls):
             # box align to correct pose.
             # stage1_content contains all agent. Even out of comm range.
             if self.box_align and str(idx) in self.stage1_result.keys():
-                from opencood.models.sub_modules.box_align_v2 import box_alignment_relative_sample_np
+                from opencood.models.sub_modules.box_align_v2_rsu_anchor import box_alignment_relative_sample_np
                 stage1_content = self.stage1_result[str(idx)]
                 if stage1_content is not None:
                     all_agent_id_list = stage1_content['cav_id_list'] # include those out of range
@@ -325,11 +351,17 @@ def getIntermediateFusionDataset(cls):
                     uncertainty_list = [np.array(all_agent_uncertainty_list[cur_in_all_ind], dtype=np.float64) 
                                             for cur_in_all_ind in cur_agent_in_all_agent]
 
-                    if 0 in matched_cur_indices and sum([len(pred_corners) for pred_corners in pred_corners_list]) != 0:
+                    if sum([len(pred_corners) for pred_corners in pred_corners_list]) != 0:
+                        fixed_agent_id = _prefer_rsu_anchor_index(
+                            self.params['fusion']['dataset'],
+                            cur_agent_id_list,
+                            matched_cur_indices
+                        )
                         align_pose = cur_agnet_pose[matched_cur_indices].copy()
                         refined_pose = box_alignment_relative_sample_np(pred_corners_list,
                                                                         align_pose,
                                                                         uncertainty_list=uncertainty_list, 
+                                                                        fixed_agent_id=fixed_agent_id,
                                                                         **self.box_align_args)
                         for pose_idx, refined in zip(matched_cur_indices, refined_pose):
                             cur_agnet_pose[pose_idx, [0, 1, 4]] = refined

@@ -7,6 +7,14 @@ import numpy as np
 import torch
 import torch.distributions as dist
 
+def is_rsu_cav_id(cav_id):
+    """Return True for the V2XSet RSU id."""
+    try:
+        return int(cav_id) == -1
+    except (TypeError, ValueError):
+        return str(cav_id).strip() == "-1"
+
+
 def add_noise_data_dict(data_dict, noise_setting):
     """ Update the base data dict. 
         We retrieve lidar_pose and add_noise to it.
@@ -15,6 +23,8 @@ def add_noise_data_dict(data_dict, noise_setting):
     if noise_setting['add_noise']:
         for cav_id, cav_content in data_dict.items():
             cav_content['params']['lidar_pose_clean'] = cav_content['params']['lidar_pose'] # 6 dof pose
+            if is_rsu_cav_id(cav_id):
+                continue
 
             if "laplace" in noise_setting['args'].keys() and noise_setting['args']['laplace'] is True:
                 cav_content['params']['lidar_pose'] = cav_content['params']['lidar_pose'] + \

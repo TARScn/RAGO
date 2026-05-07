@@ -12,6 +12,7 @@ from opencood.models.sub_modules.base_bev_backbone_resnet import ResNetBEVBackbo
 from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.fuse_modules.fusion_in_one import MaxFusion, AttFusion, DiscoFusion, V2VNetFusion, V2XViTFusion, When2commFusion
+from opencood.models.fuse_modules.v2xvit_deform_fuse import V2XViTDeformFusion
 from opencood.utils.transformation_utils import normalize_pairwise_tfm
 
 class PointPillarBaseline(nn.Module):
@@ -43,6 +44,8 @@ class PointPillarBaseline(nn.Module):
             self.fusion_net = V2VNetFusion(args['v2vnet'])
         if args['fusion_method'] == 'v2xvit':
             self.fusion_net = V2XViTFusion(args['v2xvit'])
+        if args['fusion_method'] == 'v2xvit_deform':
+            self.fusion_net = V2XViTDeformFusion(args['v2xvit_deform'])
         if args['fusion_method'] == 'when2comm':
             self.fusion_net = When2commFusion(args['when2comm'])
 

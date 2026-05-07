@@ -1,9 +1,11 @@
 """
 Multi-scale window transformer
 """
+import math
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 
 from einops import rearrange
 from opencood.models.sub_modules.split_attn import SplitAttn
@@ -45,10 +47,22 @@ class BaseWindowAttention(nn.Module):
 
     def forward(self, x):
         b, l, h, w, c, m = *x.shape, self.heads
+        orig_h, orig_w = h, w
+
+        pad_h = (self.window_size - h % self.window_size) % self.window_size
+        pad_w = (self.window_size - w % self.window_size) % self.window_size
+        if pad_h > 0 or pad_w > 0:
+            # F.pad works on NCHW-like trailing dims, so switch to channel-first,
+            # pad the spatial axes, then switch back.
+            x = x.permute(0, 1, 4, 2, 3).contiguous()
+            x = x.view(b * l, c, h, w)
+            x = F.pad(x, (0, pad_w, 0, pad_h))
+            h, w = h + pad_h, w + pad_w
+            x = x.view(b, l, c, h, w).permute(0, 1, 3, 4, 2).contiguous()
 
         qkv = self.to_qkv(x).chunk(3, dim=-1)
-        new_h = h // self.window_size
-        new_w = w // self.window_size
+        new_h = math.ceil(h / self.window_size)
+        new_w = math.ceil(w / self.window_size)
 
         # q : (b, l, m, new_h*new_w, window_size^2, c_head)
         q, k, v = map(
@@ -75,6 +89,8 @@ class BaseWindowAttention(nn.Module):
                         m=self.heads, w_h=self.window_size,
                         w_w=self.window_size,
                         new_w=new_w, new_h=new_h)
+        if pad_h > 0 or pad_w > 0:
+            out = out[:, :, :orig_h, :orig_w, :].contiguous()
         out = self.to_out(out)
 
         return out
@@ -101,9 +117,9 @@ class PyramidWindowAttention(nn.Module):
                                                   relative_pos_embedding))
         self.fuse_mehod = fuse_method
         if fuse_method == 'split_attn':
-            self.split_attn = SplitAttn(256)
+            self.split_attn = SplitAttn(dim)
         elif fuse_method == 'split_attn128':
-            self.split_attn = SplitAttn(128)
+            self.split_attn = SplitAttn(dim)
 
     def forward(self, x):
         output = None
