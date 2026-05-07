@@ -20,7 +20,7 @@ from opencood.utils.camera_utils import (
 from opencood.utils.heter_utils import AgentSelector
 from opencood.utils.common_utils import merge_features_to_dict
 from opencood.utils.transformation_utils import x1_to_x2, x_to_world, get_pairwise_transformation
-from opencood.utils.pose_utils import add_noise_data_dict
+from opencood.utils.pose_utils import add_noise_data_dict, generate_noise, generate_noise_laplace
 from opencood.utils.pcd_utils import (
     mask_points_by_range,
     mask_ego_points,
@@ -35,6 +35,20 @@ def _is_rsu_cav_id(cav_id):
         return int(cav_id) == -1
     except (TypeError, ValueError):
         return str(cav_id).strip() == "-1"
+
+
+def _is_dair_rsu_cav_id(cav_id):
+    try:
+        return int(cav_id) == 1
+    except (TypeError, ValueError):
+        return str(cav_id).strip() == "1"
+
+
+def _is_anchor_cav_id(dataset_name, cav_id):
+    dataset_name = str(dataset_name).lower()
+    if dataset_name == 'dairv2x':
+        return _is_dair_rsu_cav_id(cav_id)
+    return _is_rsu_cav_id(cav_id)
 
 
 def _prefer_rsu_anchor_index(dataset_name, cav_id_list, matched_cur_indices):
@@ -54,6 +68,55 @@ def _prefer_rsu_anchor_index(dataset_name, cav_id_list, matched_cur_indices):
             return matched_idx
 
     return matched_cur_indices[0] if matched_cur_indices else 0
+
+
+def _prepare_rsu_anchor_base_data(base_data_dict, dataset_name, noise_setting):
+    dataset_name = str(dataset_name).lower()
+
+    for cav_content in base_data_dict.values():
+        cav_content['params']['lidar_pose_clean'] = \
+            cav_content['params']['lidar_pose']
+
+    if noise_setting['add_noise']:
+        for cav_id, cav_content in base_data_dict.items():
+            if _is_anchor_cav_id(dataset_name, cav_id):
+                continue
+
+            if "laplace" in noise_setting['args'] and \
+                    noise_setting['args']['laplace'] is True:
+                cav_content['params']['lidar_pose'] = \
+                    cav_content['params']['lidar_pose'] + generate_noise_laplace(
+                        noise_setting['args']['pos_std'],
+                        noise_setting['args']['rot_std'],
+                        noise_setting['args']['pos_mean'],
+                        noise_setting['args']['rot_mean']
+                    )
+            else:
+                cav_content['params']['lidar_pose'] = \
+                    cav_content['params']['lidar_pose'] + generate_noise(
+                        noise_setting['args']['pos_std'],
+                        noise_setting['args']['rot_std'],
+                        noise_setting['args']['pos_mean'],
+                        noise_setting['args']['rot_mean']
+                    )
+
+    if dataset_name == 'dairv2x':
+        reordered = OrderedDict()
+        preferred_ids = []
+        for cav_id in base_data_dict.keys():
+            if _is_dair_rsu_cav_id(cav_id):
+                preferred_ids.append(cav_id)
+        for cav_id in base_data_dict.keys():
+            if cav_id not in preferred_ids:
+                preferred_ids.append(cav_id)
+
+        for idx, cav_id in enumerate(preferred_ids):
+            cav_content = base_data_dict[cav_id]
+            cav_content['ego'] = (idx == 0)
+            reordered[cav_id] = cav_content
+        return reordered
+
+    return base_data_dict
 
 
 def getIntermediateFusionDataset(cls):
@@ -261,7 +324,11 @@ def getIntermediateFusionDataset(cls):
 
         def __getitem__(self, idx):
             base_data_dict = self.retrieve_base_data(idx)
-            base_data_dict = add_noise_data_dict(base_data_dict,self.params['noise_setting'])
+            base_data_dict = _prepare_rsu_anchor_base_data(
+                base_data_dict,
+                self.params['fusion']['dataset'],
+                self.params['noise_setting']
+            )
 
             processed_data_dict = OrderedDict()
             processed_data_dict['ego'] = {}
