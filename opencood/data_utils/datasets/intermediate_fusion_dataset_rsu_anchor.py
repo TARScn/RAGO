@@ -20,7 +20,7 @@ from opencood.utils.camera_utils import (
 from opencood.utils.heter_utils import AgentSelector
 from opencood.utils.common_utils import merge_features_to_dict
 from opencood.utils.transformation_utils import x1_to_x2, x_to_world, get_pairwise_transformation
-from opencood.utils.pose_utils import add_noise_data_dict, generate_noise, generate_noise_laplace
+from opencood.utils.pose_utils import generate_noise, generate_noise_laplace
 from opencood.utils.pcd_utils import (
     mask_points_by_range,
     mask_ego_points,
@@ -30,44 +30,48 @@ from opencood.utils.pcd_utils import (
 from opencood.utils.common_utils import read_json
 
 
-def _is_rsu_cav_id(cav_id):
+def _is_rsu_agent_key(agent_key):
     try:
-        return int(cav_id) == -1
+        return int(agent_key) == -1
     except (TypeError, ValueError):
-        return str(cav_id).strip() == "-1"
+        return str(agent_key).strip() == "-1"
 
 
-def _is_dair_rsu_cav_id(cav_id):
+def _is_dair_rsu_agent_key(agent_key):
+    """
+    DAIR-V2X does not store an explicit cav_id field.
+    The base dataset uses OrderedDict keys directly:
+    0 -> vehicle side, 1 -> infrastructure side.
+    """
     try:
-        return int(cav_id) == 1
+        return int(agent_key) == 1
     except (TypeError, ValueError):
-        return str(cav_id).strip() == "1"
+        return str(agent_key).strip() == "1"
 
 
-def _is_anchor_cav_id(dataset_name, cav_id):
+def _is_anchor_agent_key(dataset_name, agent_key):
     dataset_name = str(dataset_name).lower()
     if dataset_name == 'dairv2x':
-        return _is_dair_rsu_cav_id(cav_id)
-    return _is_rsu_cav_id(cav_id)
+        return _is_dair_rsu_agent_key(agent_key)
+    return _is_rsu_agent_key(agent_key)
 
 
-def _prefer_rsu_anchor_index(dataset_name, cav_id_list, matched_cur_indices):
+def _prefer_rsu_anchor_index(dataset_name, agent_key_list, matched_agent_indices):
+    """
+    Return the local index inside the matched agent subset used by
+    pred_corners_list / align_pose, not the original global index.
+    """
     dataset_name = str(dataset_name).lower()
     if dataset_name == 'dairv2x':
-        for matched_idx in matched_cur_indices:
-            cav_id = cav_id_list[matched_idx]
-            try:
-                if int(cav_id) == 1:
-                    return matched_idx
-            except (TypeError, ValueError):
-                if str(cav_id).strip() == "1":
-                    return matched_idx
+        for local_idx, matched_idx in enumerate(matched_agent_indices):
+            if _is_dair_rsu_agent_key(agent_key_list[matched_idx]):
+                return local_idx
 
-    for matched_idx in matched_cur_indices:
-        if _is_rsu_cav_id(cav_id_list[matched_idx]):
-            return matched_idx
+    for local_idx, matched_idx in enumerate(matched_agent_indices):
+        if _is_rsu_agent_key(agent_key_list[matched_idx]):
+            return local_idx
 
-    return matched_cur_indices[0] if matched_cur_indices else 0
+    return 0
 
 
 def _prepare_rsu_anchor_base_data(base_data_dict, dataset_name, noise_setting):
@@ -78,8 +82,8 @@ def _prepare_rsu_anchor_base_data(base_data_dict, dataset_name, noise_setting):
             cav_content['params']['lidar_pose']
 
     if noise_setting['add_noise']:
-        for cav_id, cav_content in base_data_dict.items():
-            if _is_anchor_cav_id(dataset_name, cav_id):
+        for agent_key, cav_content in base_data_dict.items():
+            if _is_anchor_agent_key(dataset_name, agent_key):
                 continue
 
             if "laplace" in noise_setting['args'] and \
@@ -102,18 +106,18 @@ def _prepare_rsu_anchor_base_data(base_data_dict, dataset_name, noise_setting):
 
     if dataset_name == 'dairv2x':
         reordered = OrderedDict()
-        preferred_ids = []
-        for cav_id in base_data_dict.keys():
-            if _is_dair_rsu_cav_id(cav_id):
-                preferred_ids.append(cav_id)
-        for cav_id in base_data_dict.keys():
-            if cav_id not in preferred_ids:
-                preferred_ids.append(cav_id)
+        preferred_keys = []
+        for agent_key in base_data_dict.keys():
+            if _is_dair_rsu_agent_key(agent_key):
+                preferred_keys.append(agent_key)
+        for agent_key in base_data_dict.keys():
+            if agent_key not in preferred_keys:
+                preferred_keys.append(agent_key)
 
-        for idx, cav_id in enumerate(preferred_ids):
-            cav_content = base_data_dict[cav_id]
+        for idx, agent_key in enumerate(preferred_keys):
+            cav_content = base_data_dict[agent_key]
             cav_content['ego'] = (idx == 0)
-            reordered[cav_id] = cav_content
+            reordered[agent_key] = cav_content
         return reordered
 
     return base_data_dict
@@ -399,15 +403,16 @@ def getIntermediateFusionDataset(cls):
                     all_agent_corners_list = stage1_content['pred_corner3d_np_list']
                     all_agent_uncertainty_list = stage1_content['uncertainty_np_list']
 
-                    cur_agent_id_list = cav_id_list
-                    cur_agent_pose = [base_data_dict[cav_id]['params']['lidar_pose'] for cav_id in cav_id_list]
+                    cur_agent_key_list = cav_id_list
+                    cur_agent_pose = [base_data_dict[agent_key]['params']['lidar_pose']
+                                      for agent_key in cav_id_list]
                     cur_agnet_pose = np.array(cur_agent_pose)
                     all_agent_id_to_index = {str(agent_id): agent_idx
                                              for agent_idx, agent_id in enumerate(all_agent_id_list)}
                     matched_cur_indices = []
                     cur_agent_in_all_agent = []
-                    for cur_idx, cur_agent in enumerate(cur_agent_id_list):
-                        cur_in_all_ind = all_agent_id_to_index.get(str(cur_agent))
+                    for cur_idx, cur_agent_key in enumerate(cur_agent_key_list):
+                        cur_in_all_ind = all_agent_id_to_index.get(str(cur_agent_key))
                         if cur_in_all_ind is None:
                             continue
                         matched_cur_indices.append(cur_idx)
@@ -421,7 +426,7 @@ def getIntermediateFusionDataset(cls):
                     if sum([len(pred_corners) for pred_corners in pred_corners_list]) != 0:
                         fixed_agent_id = _prefer_rsu_anchor_index(
                             self.params['fusion']['dataset'],
-                            cur_agent_id_list,
+                            cur_agent_key_list,
                             matched_cur_indices
                         )
                         align_pose = cur_agnet_pose[matched_cur_indices].copy()
