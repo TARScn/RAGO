@@ -26,6 +26,10 @@ def _extract_epoch_from_bestval_path(checkpoint_path):
                      os.path.basename(checkpoint_path))
     return int(match.group(1)) if match else None
 
+
+def _repo_root():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 def train_parser():
     parser = argparse.ArgumentParser(description="synthetic data generation")
     parser.add_argument("--hypes_yaml", "-y", type=str, required=True,
@@ -208,7 +212,7 @@ def main():
                    "--model_dir", saved_path,
                    "--fusion_method", fusion_method]
         print(f"Running command: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, cwd=_repo_root())
 
 if __name__ == '__main__':
     main()

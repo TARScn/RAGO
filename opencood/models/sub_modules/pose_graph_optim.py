@@ -18,8 +18,10 @@ class PoseGraphOptimization2D(g2o.SparseOptimizer):
         super().set_verbose(verbose)
 
     def optimize(self, max_iterations=1000):
+        if len(self.vertices()) == 0 or len(self.edges()) == 0:
+            return 0
         super().initialize_optimization()
-        super().optimize(max_iterations)
+        return super().optimize(max_iterations)
 
 
     def add_vertex(self, id, pose, fixed=False, SE2=True):
@@ -69,8 +71,10 @@ class PoseGraphOptimization(g2o.SparseOptimizer):
         super().set_verbose(True)
 
     def optimize(self, max_iterations=50):
+        if len(self.vertices()) == 0 or len(self.edges()) == 0:
+            return 0
         super().initialize_optimization()
-        super().optimize(max_iterations)
+        return super().optimize(max_iterations)
 
     def add_vertex(self, id, pose, fixed=False):
         v_se3 = g2o.VertexSE3()

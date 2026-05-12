@@ -352,6 +352,8 @@ def box_alignment_relative_sample_np(
 
         pgo.add_vertex(id=v_id, pose=v_pose, fixed=False, SE2=landmark_SE2)
 
+    edge_num = 0
+
     # Add agent-object edge to edge set
     for landmark_id in range(agent_num, vertex_num):
         landmark_SE2 = cluster_dict[landmark_id]['landmark_SE2']
@@ -382,7 +384,11 @@ def box_alignment_relative_sample_np(
                         continue
 
             pgo.add_edge(vertices=[agent_id, landmark_id], measurement=e_pose, information=info, SE2=landmark_SE2)
-    
+            edge_num += 1
+
+    if edge_num == 0:
+        return noisy_lidar_pose[:,[0,1,4]]
+
     pgo.optimize(max_iterations)
 
     pose_new_list = []
