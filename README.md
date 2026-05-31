@@ -148,21 +148,6 @@ The V2XSet ablation yaml files are named from `e0` to `e5` and each file starts 
 opencood/hypes_yaml/v2xset/lidar_only_with_noise/rdu_coalign/e4_rdu_coalign_full.yaml
 ```
 
-## Citation
-
-If you use the original CoAlign code or compare against CoAlign, please cite:
-
-```bibtex
-@inproceedings{lu2023robust,
-  title={Robust collaborative 3d object detection in presence of pose errors},
-  author={Lu, Yifan and Li, Quanhao and Liu, Baoan and Dianati, Mehrdad and Feng, Chen and Chen, Siheng and Wang, Yanfeng},
-  booktitle={2023 IEEE International Conference on Robotics and Automation (ICRA)},
-  pages={4812--4818},
-  year={2023},
-  organization={IEEE}
-}
-```
-
 ## Acknowledgement
 
 This project builds on CoAlign and OpenCOOD. Thanks to the authors and contributors of [CoAlign](https://github.com/yifanlu0227/CoAlign), [OpenCOOD](https://github.com/DerrickXuNu/OpenCOOD), g2opy, and d3d.
