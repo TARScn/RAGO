@@ -1,4 +1,7 @@
-name: v2xset_rago_coalign_hybrid_v2xvit_deform_rsu_distance_withnoise
+# E3 CoAlign with RSU distance guidance.
+# Used modules: multiscale AttFusion intermediate fusion, box alignment, RSU distance guidance.
+# Unused modules: semantic enhancement.
+name: v2xset_rdu_ablation_e3_coalign_rsu_distance_withnoise
 root_dir: "dataset/V2XSET/train"
 validate_dir: "dataset/V2XSET/validate"
 test_dir: "dataset/V2XSET/test"
@@ -85,7 +88,7 @@ postprocess:
     anchor_yaw: *anchor_yaw
 
 model:
-  core_method: point_pillar_coalign_hybrid_v2xvit_deform_rsu_distance
+  core_method: point_pillar_baseline_multiscale_rsu_distance
   args:
     voxel_size: *voxel_size
     lidar_range: *cav_lidar
@@ -109,44 +112,6 @@ model:
     fusion_method: att
     att:
       feat_dim: [64, 128, 256]
-
-    hybrid_v2xvit_deform:
-      level: 2
-      gate_init: -4.0
-      fusion:
-        transformer:
-          encoder:
-            num_blocks: 1
-            depth: 1
-            use_roi_mask: true
-            cav_att_config:
-              dim: 256
-              use_hetero: true
-              use_RTE: false
-              RTE_ratio: 0
-              heads: 8
-              dim_head: 32
-              dropout: 0.1
-            pwindow_att_config:
-              dim: 256
-              heads: [4, 4, 4]
-              dim_head: [16, 16, 16]
-              dropout: 0.1
-              window_size: [1, 5, 11]
-              relative_pos_embedding: true
-              fusion_method: 'split_attn'
-            feed_forward:
-              mlp_dim: 256
-              dropout: 0.1
-            sttf:
-              voxel_size: *voxel_size
-              downsample_rate: 8
-        deformable:
-          feature_dim: 256
-          n_heads: 4
-          n_points: 4
-          ffn_dim: 512
-          dropout: 0.1
 
     rsu_distance_guidance:
       rsu_index: -1

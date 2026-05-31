@@ -23,7 +23,7 @@ def regroup(x, record_len):
     return torch.tensor_split(x, cum_sum_len[:-1].cpu())
 
 
-class PointPillarCoalignHybridV2xvitDeformRsuDistance(nn.Module):
+class PointPillarRduCoalign(nn.Module):
     """
     Hybrid CoAlign + V2XViT-Deform with RSU-anchor distance-guided refinement.
 
