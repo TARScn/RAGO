@@ -148,6 +148,12 @@ The V2XSet ablation yaml files are named from `e0` to `e5` and each file starts 
 opencood/hypes_yaml/v2xset/lidar_only_with_noise/rdu_coalign/e4_rdu_coalign_full.yaml
 ```
 
+## License
+
+This project is a derivative of [CoAlign](https://github.com/yifanlu0227/CoAlign). The original CoAlign source files in this repository carry the `TDG-Attribution-NonCommercial-NoDistrib` notice and are governed by the Academic Software License in [LICENSE](LICENSE).
+
+This repository is intended for educational and academic research use only. Do not treat this project as MIT-licensed, and do not redistribute the original software or derivative works unless you have the required permission from the original rightsholder. Commercial use requires a separate license from UCLA Mobility Lab or UCLA Technology Development Group.
+
 ## Acknowledgement
 
 This project builds on CoAlign and OpenCOOD. Thanks to the authors and contributors of [CoAlign](https://github.com/yifanlu0227/CoAlign), [OpenCOOD](https://github.com/DerrickXuNu/OpenCOOD), g2opy, and d3d.
