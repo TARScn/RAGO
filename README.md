@@ -8,7 +8,7 @@ This repository is based on [CoAlign](https://github.com/yifanlu0227/CoAlign), a
 - CoAlign-style box alignment using precomputed stage-1 boxes.
 - RDU-CoAlign model:
   - multiscale AttFusion backbone,
-  - hybrid V2XViT-Deform semantic enhancement,
+  - hybrid semantic enhancement,
   - RSU distance guidance for far-range feature refinement.
 - Dataset yaml support for OPV2V, V2X-Sim 2.0, DAIR-V2X-C, and V2XSet.
 
